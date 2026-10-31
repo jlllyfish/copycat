@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Copycat 🐈‍⬛</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%88%E2%80%8D%E2%AC%9B%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@gouvfr/dsfr@1.13.1/dist/dsfr.min.css">
+<script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  [hidden] { display:none !important; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Marianne",arial,sans-serif; background:#fff; color:#161616; padding:20px 24px 40px; }
+  body.no-scroll { overflow:hidden; }
+  :focus-visible { outline:2px solid #0A76F6 !important; outline-offset:2px; }
+
+  .title-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  h1 { font-size:1.15rem; line-height:1.4; margin:0 0 4px; }
+  .sub { font-size:.85rem; color:#3A3A3A; margin:0 0 16px; }
+
+  .icon-btn { background:none !important; border:1px solid #DDD; border-radius:4px; width:32px; height:32px; min-height:0; padding:0; cursor:pointer; color:#000091; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; font-size:1rem; opacity:1 !important; }
+  .icon-btn:hover { background:#F6F6F6 !important; }
+
+  /* ---- Filtres ---- */
+  .filters { display:flex; flex-wrap:wrap; align-items:flex-end; gap:8px 16px; margin:0 0 20px; }
+  .filter-fields { display:flex; flex-wrap:wrap; gap:8px 16px; }
+  .filters .fr-select-group { margin:0; min-width:13rem; max-width:100%; }
+  .filters .fr-label { font-size:.8rem; font-weight:700; }
+  .filters .fr-select { margin-top:4px; padding-top:.35rem; padding-bottom:.35rem; font-size:.85rem; }
+  .filters .fr-select.active { background-color:#F5F5FE; box-shadow:inset 0 -2px 0 0 #000091; }
+  .filters .fr-btn { margin-bottom:2px; }
+
+  /* ---- Tableau ---- */
+  .table-scroll { overflow-x:auto; margin-bottom:32px; }
+  table.pivot { border-collapse:collapse; width:100%; font-size:.85rem; }
+  table.pivot th, table.pivot td { border:1px solid #DDD; padding:7px 10px; text-align:center; }
+  table.pivot thead th { background:#F6F6F6; font-weight:700; }
+  table.pivot tbody th { text-align:left; font-weight:700; background:#F6F6F6; }
+  table.pivot tr.tot > * { font-weight:700; color:#000091; border-top:2px solid #000091; }
+  table.pivot td { white-space:nowrap; }
+  table.pivot td.zero { color:#767676; }
+
+  /* ---- Graphiques ---- */
+  .charts { display:flex; flex-direction:column; gap:24px; }
+  .chartbox { border:1px solid #E5E5E5; padding:16px; }
+  .chart-head { display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; }
+  .chart-head h2 { flex:1; font-size:.95rem; line-height:1.4; margin:4px 0 0; }
+  .chart-tools { display:flex; gap:6px; }
+  .chart-tools .icon-btn { width:28px; height:28px; }
+  .measure-switch { margin:0 0 12px; }
+  .measure-switch .fr-segmented { max-width:100%; }
+  .measure-switch .fr-segmented__elements { flex-wrap:wrap; }
+  .chartwrap { position:relative; height:340px; }
+  .chartwrap.donut { height:300px; max-width:560px; margin:0 auto; }
+
+  /* ---- Fenêtres (configuration, aperçu) ---- */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.3); display:flex; z-index:1000; }
+  .overlay--side { justify-content:flex-end; }
+  .overlay--center { justify-content:center; align-items:center; }
+  .config-panel { background:#fff; width:360px; max-width:100vw; height:100%; display:flex; flex-direction:column; box-shadow:-2px 0 8px rgba(0,0,0,.15); }
+  .config-panel:focus { outline:none; }
+  .config-header { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-bottom:1px solid #E5E5E5; }
+  .config-header h2 { font-size:1.05rem; margin:0; }
+  .close-btn { background:none !important; border:none; font-size:1.4rem; line-height:1; cursor:pointer; color:#3A3A3A; width:32px; height:32px; min-height:0; padding:0; opacity:1 !important; }
+  .config-body { flex:1; overflow-y:auto; padding:4px 20px 20px; }
+  .config-footer { display:flex; gap:8px; padding:12px 20px; border-top:1px solid #E5E5E5; }
+
+  .cfg-section { border-bottom:1px solid #E5E5E5; }
+  .cfg-section > summary { cursor:pointer; font-weight:700; color:#000091; padding:12px 0; list-style:none; display:flex; justify-content:space-between; gap:8px; }
+  .cfg-section > summary::-webkit-details-marker { display:none; }
+  .cfg-section > summary::after { content:"+"; font-weight:400; }
+  .cfg-section[open] > summary::after { content:"−"; }
+  .cfg-section-body { padding:0 0 12px; }
+  .cfg-section .fr-input-group, .cfg-section .fr-select-group { margin-bottom:14px; }
+  .cfg-section .fr-label { font-size:.85rem; }
+  .cfg-section .fr-input, .cfg-section .fr-select { margin-top:4px; padding-top:.35rem; padding-bottom:.35rem; font-size:.85rem; }
+  .cfg-section .fr-checkbox-group { margin-bottom:8px; }
+  .cfg-section fieldset { border:none; margin:0 0 10px; padding:0; }
+  .cfg-section legend { font-size:.85rem; font-weight:700; margin-bottom:6px; padding:0; }
+  .cfg-hint { font-size:.78rem; color:#666; margin:0 0 8px; }
+  .cfg-item { padding:10px 0; border-top:1px dashed #DDD; }
+  .cfg-item-label { display:flex; align-items:center; gap:8px; font-size:.85rem; font-weight:700; margin:0; word-break:break-word; }
+  .cfg-cur { width:18px; height:18px; border-radius:3px; border:1px solid rgba(0,0,0,.25); flex-shrink:0; }
+  .cfg-swatches { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .cfg-swatch { width:22px; height:22px; min-height:0; border-radius:50%; border:1px solid rgba(0,0,0,.2); padding:0; cursor:pointer; opacity:1 !important; }
+  .cfg-swatch[aria-checked="true"] { box-shadow:0 0 0 2px #fff, 0 0 0 4px #161616; }
+  .cfg-link { display:block; background:none !important; border:none; color:#000091 !important; text-decoration:underline; cursor:pointer; padding:0; min-height:0; font-size:.8rem; margin-top:8px; opacity:1 !important; }
+  .cfg-custom { display:block; width:100%; height:32px; margin-top:6px; padding:0 2px; border:1px solid #CCC; border-radius:4px; background:none; cursor:pointer; }
+
+  .preview-box { background:#fff; padding:16px; max-width:min(92vw, 900px); max-height:92vh; overflow:auto; position:relative; }
+  .preview-box img { max-width:100%; height:auto; display:block; border:1px solid #DDD; }
+  .preview-msg { font-size:.85rem; margin:0 36px 10px 0; color:#3A3A3A; }
+  .preview-box .close-btn { position:absolute; top:6px; right:8px; }
+
+  .toast { position:fixed; left:50%; bottom:16px; transform:translateX(-50%); background:#161616; color:#fff; padding:10px 16px; border-radius:4px; font-size:.85rem; z-index:2000; max-width:90vw; text-align:center; }
+  .toast:empty { display:none; }
+  .toast-link { background:none !important; border:none; color:#fff !important; text-decoration:underline; cursor:pointer; padding:0; min-height:0; font-size:.85rem; opacity:1 !important; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body>
+
+<div class="title-row">
+  <h1 id="pageTitle">Suivi des dossiers</h1>
+  <button id="cfgOpenBtn" class="icon-btn" type="button" aria-haspopup="dialog" aria-label="Configurer le widget" title="Configurer le widget">⚙</button>
+</div>
+<p class="sub" id="pageSub">Chargement…</p>
+
+<div class="filters" id="filters" hidden>
+  <div class="filter-fields" id="filterFields"></div>
+  <button id="filterReset" type="button" class="fr-btn fr-btn--sm fr-btn--tertiary-no-outline" hidden>Réinitialiser les filtres</button>
+</div>
+<p id="liveStatus" class="fr-sr-only" aria-live="polite"></p>
+
+<div id="content" hidden>
+  <div id="tableBox" class="table-scroll" role="region" aria-label="Tableau de données" tabindex="0"></div>
+
+  <div class="charts">
+    <section class="chartbox" id="barBox" aria-labelledby="barTitle">
+      <div class="chart-head"><h2 id="barTitle"></h2><div class="chart-tools" data-chart="barChart" data-title="barTitle"></div></div>
+      <div class="measure-switch" id="measureSwitch" hidden></div>
+      <div class="chartwrap"><canvas id="barChart" role="img"></canvas></div>
+    </section>
+    <section class="chartbox" id="distBox" aria-labelledby="distTitle">
+      <div class="chart-head"><h2 id="distTitle"></h2><div class="chart-tools" data-chart="distChart" data-title="distTitle"></div></div>
+      <div class="chartwrap donut"><canvas id="distChart" role="img"></canvas></div>
+    </section>
+    <section class="chartbox" id="ratioBox" aria-labelledby="ratioTitle">
+      <div class="chart-head"><h2 id="ratioTitle"></h2><div class="chart-tools" data-chart="ratioChart" data-title="ratioTitle"></div></div>
+      <div class="chartwrap donut"><canvas id="ratioChart" role="img"></canvas></div>
+    </section>
+  </div>
+</div>
+
+<!-- Panneau de configuration -->
+<div id="configOverlay" class="overlay overlay--side" hidden>
+  <form class="config-panel" id="cfgForm" role="dialog" aria-modal="true" aria-labelledby="cfgTitle" tabindex="-1">
+    <div class="config-header">
+      <h2 id="cfgTitle">Configuration</h2>
+      <button id="cfgClose" class="close-btn" type="button" aria-label="Fermer la configuration">&times;</button>
+    </div>
+    <div class="config-body" id="cfgFields"></div>
+    <div class="config-footer">
+      <button type="submit" class="fr-btn fr-btn--sm">Enregistrer</button>
+      <button type="button" id="cfgCancel" class="fr-btn fr-btn--sm fr-btn--secondary">Annuler</button>
+    </div>
+  </form>
+</div>
+
+<!-- Aperçu d'image (repli quand la copie / le téléchargement sont bloqués) -->
+<div id="previewOverlay" class="overlay overlay--center" hidden>
+  <div class="preview-box" role="dialog" aria-modal="true" aria-labelledby="previewMsg" tabindex="-1">
+    <button id="previewClose" class="close-btn" type="button" aria-label="Fermer l'aperçu">&times;</button>
+    <p id="previewMsg" class="preview-msg"></p>
+    <img id="previewImg" alt="">
+  </div>
+</div>
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   Copycat 🐈‍⬛ — widget Grist unifié
+   - Lignes (regroupement) × « Découper par » (ex. statut) : comptage et/ou somme
+   - Histogramme (une mesure à la fois), donut « répartition », donut « part / total »
+   - Filtres liés, export PNG, panneau de configuration accessible
+   ===================================================================== */
+
+const ALL = "__ALL__";       // pas de colonne « Lignes » associée : une seule ligne
+const EMPTY = "__EMPTY__";   // cellule vide
+const NOSER = "__NOSER__";   // pas de colonne « Découper par » associée
+
+// ==== Colonnes Grist (toutes optionnelles). "name" = clé technique : ne pas changer ====
+// Les noms reprennent ceux des deux anciens widgets pour garder les associations existantes.
+const COLS = {
+  lignes:     { name: "Categorie",  title: "Lignes du tableau",          type: "Any",
+                description: "Regroupe les données : une ligne du tableau et un groupe de barres par valeur." },
+  series:     { name: "Statut",     title: "Découper par (ex. statut)",  type: "Any",
+                description: "Facultatif. Découpe chaque ligne du tableau par valeur de cette colonne (ex. statut du dossier) : une couleur par valeur." },
+  valeurs:    { name: "Valeurs",    title: "Valeurs à additionner",      type: "Numeric,Int", allowMultiple: true,
+                description: "Une ou plusieurs colonnes numériques, additionnées par ligne." },
+  donutCat:   { name: "Avis",       title: "Donut : répartition d'une colonne", type: "Any",
+                description: "Affiche la part de chaque valeur de cette colonne (ex. type d'avis)." },
+  donutPart:  { name: "DonutPart",  title: "Donut : nombre",             type: "Numeric,Int,Bool",
+                description: "Affiche la part atteinte par rapport au total de référence (une case à cocher compte pour 1)." },
+  donutTotal: { name: "DonutTotal", title: "Donut : total de référence", type: "Numeric,Int",
+                description: "Facultatif. Si vide, le total de référence est le nombre de lignes." }
+};
+
+// ==== Couleurs (toutes au moins 3:1 sur fond blanc, sauf le bleu pâle réservé à la part restante) ====
+const PALETTE = ["#000091", "#18753C", "#B34000", "#6E445A", "#009099", "#A558A0", "#417DC4", "#CE614A", "#8D6E00", "#929292"];
+const COLOR_NAMES = {
+  "#000091": "Bleu France", "#18753c": "Vert", "#b34000": "Orange brûlé", "#6e445a": "Prune",
+  "#009099": "Turquoise", "#a558a0": "Violet", "#417dc4": "Bleu ciel", "#ce614a": "Brique",
+  "#8d6e00": "Moutarde", "#929292": "Gris", "#ce0500": "Rouge", "#a55800": "Brun", "#cacafb": "Bleu pâle"
+};
+const SWATCHES = [...PALETTE, "#CE0500", "#A55800", "#CACAFB"].map(c => c.toLowerCase());
+const DONUT_DEFAULT = { part: "#000091", rest: "#CACAFB" };
+const EMPTY_COLOR = "#666666";
+
+// Préréglage « Démarches Simplifiées » : couleur et ordre des statuts reconnus
+// (comparaison insensible à la casse, aux accents, et espace ≈ underscore)
+const DS_PRESET = {
+  "en construction": { color: "#929292", order: 1, label: "En construction" },
+  "en instruction":  { color: "#000091", order: 2, label: "En instruction" },
+  "accepte":         { color: "#18753C", order: 3, label: "Accepté" },
+  "sans suite":      { color: "#A55800", order: 4, label: "Sans suite" },
+  "refuse":          { color: "#CE0500", order: 5, label: "Refusé" }
+};
+
+// ==== Options (bouton ⚙) ====
+const DEFAULTS = {
+  widgetTitle: "Suivi des dossiers",
+  subtitle: "",          // vide = automatique
+  itemLabel: "lignes",   // nom des éléments comptés, au pluriel (ex. « dossiers »)
+  unitTitle: "",         // unité des valeurs additionnées (ex. « € »)
+  totauxTitle: "Total",
+  categorieTitle: "",    // vide = nom de la colonne Grist
+  statutTitle: "",       // idem pour « Découper par »
+  barChartTitle: "",     // vide = automatique
+  avisTitle: "",         // titre du donut « répartition », vide = automatique
+  donutTitle: "",        // titre du donut « part / total », vide = automatique
+  restTitle: "Autres",
+  showTable: true, showBar: true, showDonutDist: true, showDonutRatio: true,
+  showCount: null,       // null = automatique (oui si « Découper par » est associé)
+  dsPreset: true,
+  sortMode: "source",    // "source" | "alpha" : ordre des valeurs non listées
+  catOrder: "", serOrder: "",
+  barHidden: [],
+  colTitles: {}, colColors: {}, donutColors: {},
+  catLabels: {}, serLabels: {}, serColors: {}, avisLabels: {}, avisColors: {}
+};
+const NON_EMPTY_TEXTS = ["widgetTitle", "itemLabel", "totauxTitle", "restTitle"];
+
+// ==== État ====
+let OPT = { ...DEFAULTS };
+let F = null;         // colonnes associées
+let ROWS = null;      // lignes normalisées
+let DOM = null;       // valeurs distinctes ordonnées
+let MODEL = null;     // agrégats de la sélection filtrée
+let DEF_COLORS = { ser: {}, avis: {} };
+let filterState = { cat: "", ser: "" };   // propre à chaque utilisateur, non enregistré
+let measureSel = null;
+const charts = {}, EXPORTS = {};
+
+// ==== Utilitaires ====
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const pretty = id => String(id || "").replace(/_/g, " ");
+const normAccent = s => String(s).normalize("NFC").trim();
+const normCmp = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[_\s]+/g, " ").trim().toLowerCase();
+const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+const sum = a => a.reduce((x, y) => x + y, 0);
+
+function keyOf(v) {
+  if (v === null || v === undefined || v === "") return EMPTY;
+  if (Array.isArray(v)) {                       // liste de choix Grist : ["L", "a", "b"]
+    const a = v[0] === "L" ? v.slice(1) : v;
+    return a.length ? a.map(keyOf).join(", ") : EMPTY;
+  }
+  if (v instanceof Date) return v.toLocaleDateString("fr-FR");
+  if (typeof v === "boolean") return v ? "Oui" : "Non";
+  if (typeof v === "number") return String(v);
+  if (typeof v === "object") return JSON.stringify(v);
+  const s = normAccent(v);
+  return s === "" ? EMPTY : s;
+}
+
+const unitSuffix = () => OPT.unitTitle ? " " + OPT.unitTitle : "";
+const fmtInt = n => n.toLocaleString("fr-FR");
+const fmtVal = n => n.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + unitSuffix();
+const fmtCompactRaw = n => new Intl.NumberFormat("fr-FR", { notation: "compact", compactDisplay: "short", maximumFractionDigits: 1 }).format(n);
+const fmtPct = p => p.toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
+const fmtM = (m, v) => m.count ? fmtInt(v) : fmtVal(v);
+const fmtMC = (m, v) => m.count ? fmtCompactRaw(v) : fmtCompactRaw(v) + unitSuffix();
+function itemWord(n) { const w = OPT.itemLabel || DEFAULTS.itemLabel; return n > 1 ? w : w.replace(/s$/, ""); }
+
+// Texte lisible (noir ou blanc) sur un fond donné, selon le contraste WCAG
+function luminance(hex) {
+  const n = parseInt(String(hex).replace("#", ""), 16);
+  return [n >> 16 & 255, n >> 8 & 255, n & 255]
+    .map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); })
+    .reduce((a, c, i) => a + c * [0.2126, 0.7152, 0.0722][i], 0);
+}
+function textOn(hex) {
+  const L = luminance(hex);
+  return (1.05 / (L + 0.05)) >= ((L + 0.05) / (luminance("#161616") + 0.05)) ? "#fff" : "#161616";
+}
+
+// ==== Libellés ====
+const EMPTY_LABEL = "(Non renseigné)";
+const catHeader = () => OPT.categorieTitle || (F && F.catId ? pretty(F.catId) : "Lignes");
+const serHeader = () => OPT.statutTitle || (F && F.serId ? pretty(F.serId) : "Découpage");
+const colTitle = id => (OPT.colTitles || {})[id] || pretty(id);
+const countLabel = () => `Nombre de ${OPT.itemLabel || DEFAULTS.itemLabel}`;
+function valueLabel(map, k) {
+  map = map || {};
+  if (k === EMPTY) return map[EMPTY] || EMPTY_LABEL;
+  return map[k] || map[normCmp(k)] || k;
+}
+const rawLabel = k => k === EMPTY ? EMPTY_LABEL : k;
+const catLabel = k => k === ALL ? "" : valueLabel(OPT.catLabels, k);
+const serLabel = k => { const v = valueLabel(OPT.serLabels, k), p = presetFor(k); return (v === k && p) ? p.label : v; };
+const avisLabel = k => valueLabel(OPT.avisLabels, k);
+
+// ==== Couleurs ====
+function presetFor(k) { return (OPT.dsPreset && k !== EMPTY) ? DS_PRESET[normCmp(k)] || null : null; }
+function assignColors(keys, presetColor) {
+  const out = {}, used = new Set();
+  keys.forEach(k => { const p = presetColor && presetColor(k); if (p) { out[k] = p; used.add(p.toLowerCase()); } });
+  const free = PALETTE.filter(c => !used.has(c.toLowerCase()));
+  const pool = free.length ? free : PALETTE;
+  let i = 0;
+  keys.forEach(k => { if (!out[k]) out[k] = k === EMPTY ? EMPTY_COLOR : pool[i++ % pool.length]; });
+  return out;
+}
+const pick = (map, k) => (map || {})[k] || (map || {})[normCmp(k)];
+const serColor = k => pick(OPT.serColors, k) || DEF_COLORS.ser[k] || EMPTY_COLOR;
+const avisColor = k => pick(OPT.avisColors, k) || DEF_COLORS.avis[k] || EMPTY_COLOR;
+const defColColor = i => PALETTE[i % PALETTE.length];
+const colColor = (id, i) => (OPT.colColors || {})[id] || defColColor(i);
+const donutColor = k => (OPT.donutColors || {})[k] || DONUT_DEFAULT[k];
+
+// ==== Ordre des valeurs ====
+function appearance(rows, key) {
+  const seen = new Set(), out = [];
+  rows.forEach(r => { if (!seen.has(r[key])) { seen.add(r[key]); out.push(r[key]); } });
+  return out;
+}
+function orderKeys(keys, customStr, labelFn, rankFn) {
+  const custom = String(customStr || "").split(/[,;\n]/).map(normCmp).filter(Boolean);
+  const pos = k => {
+    const a = custom.indexOf(normCmp(k)); if (a >= 0) return a;
+    const b = custom.indexOf(normCmp(labelFn(k))); return b >= 0 ? b : 1e6;
+  };
+  const src = new Map(keys.map((k, i) => [k, i]));
+  return [...keys].sort((a, b) =>
+    (a === EMPTY) - (b === EMPTY) ||
+    pos(a) - pos(b) ||
+    (rankFn ? rankFn(a) - rankFn(b) : 0) ||
+    (OPT.sortMode === "alpha" ? labelFn(a).localeCompare(labelFn(b), "fr", { numeric: true }) : src.get(a) - src.get(b)));
+}
+function computeDomains() {
+  const rawSers = F.hasSer ? appearance(ROWS, "ser") : [];
+  const rawAvis = F.hasAvis ? appearance(ROWS, "avis").filter(k => k !== EMPTY) : [];
+  DOM = {
+    cats: F.hasCat ? orderKeys(appearance(ROWS, "cat"), OPT.catOrder, catLabel) : [ALL],
+    sers: orderKeys(rawSers, OPT.serOrder, serLabel, k => (presetFor(k) || { order: 999 }).order),
+    avis: orderKeys(rawAvis, "", avisLabel),
+    rawSers, rawAvis
+  };
+  // couleurs par ordre d'apparition : elles ne changent pas quand on filtre ou trie
+  DEF_COLORS.ser = assignColors(rawSers, k => (presetFor(k) || {}).color);
+  DEF_COLORS.avis = assignColors(rawAvis);
+}
+
+// ==== Mesures ====
+const autoShowCount = () => F.hasSer || (F.valueCols.length === 0 && F.hasCat);
+function showCount() { const v = OPT.showCount; return (v === null || v === undefined || v === "") ? autoShowCount() : !!v; }
+function measures() {
+  const ms = [];
+  if (showCount()) ms.push({ key: "n", slot: 0, count: true, label: countLabel(), short: "Nb" });
+  F.valueCols.forEach((id, i) => ms.push({ key: "v" + i, slot: i + 1, id, idx: i, label: colTitle(id), short: colTitle(id) }));
+  return ms;
+}
+
+// ==== Agrégation ====
+function aggregate(rows) {
+  const nV = F.valueCols.length, zero = () => new Array(nV + 1).fill(0);
+  const add = (a, r) => { a[0] += 1; for (let i = 0; i < nV; i++) a[i + 1] += r.vals[i]; };
+  const cell = {}, byCat = {}, bySer = {}, grand = zero(), avis = {};
+  let part = 0, total = 0;
+  rows.forEach(r => {
+    const s = F.hasSer ? r.ser : NOSER;
+    cell[r.cat] = cell[r.cat] || {};
+    add(cell[r.cat][s] = cell[r.cat][s] || zero(), r);
+    add(byCat[r.cat] = byCat[r.cat] || zero(), r);
+    add(bySer[s] = bySer[s] || zero(), r);
+    add(grand, r);
+    if (F.hasAvis && r.avis !== EMPTY) avis[r.avis] = (avis[r.avis] || 0) + 1;
+    part += r.part; total += r.total;
+  });
+  return {
+    cell, byCat, bySer, grand, avis, part, total,
+    cats: DOM.cats.filter(c => byCat[c]),
+    sers: F.hasSer ? DOM.sers.filter(s => bySer[s]) : [],
+    avisKeys: DOM.avis.filter(k => avis[k])
+  };
+}
+
+// ==== Filtres liés ====
+function filterDims() {
+  const d = [];
+  if (F.hasCat) d.push({ key: "cat", label: catHeader(), keys: DOM.cats, labelFn: catLabel });
+  if (F.hasSer) d.push({ key: "ser", label: serHeader(), keys: DOM.sers, labelFn: serLabel });
+  return d.filter(x => x.keys.length > 1);
+}
+function filterDesc() {
+  if (!F || !DOM) return "";
+  return filterDims().filter(d => filterState[d.key]).map(d => `${d.label} : ${d.labelFn(filterState[d.key])}`).join(" · ");
+}
+let filterSig = null;
+function updateFilters() {
+  const dims = filterDims();
+  ["cat", "ser"].forEach(k => { if (!dims.some(d => d.key === k)) filterState[k] = ""; });
+  dims.forEach(d => { if (filterState[d.key] && !d.keys.includes(filterState[d.key])) filterState[d.key] = ""; });
+  const sig = dims.map(d => d.key).join("|");
+  if (sig !== filterSig) {   // on ne recrée les listes que si les dimensions changent (le focus est conservé)
+    filterSig = sig;
+    $("filterFields").innerHTML = dims.map(d =>
+      `<div class="fr-select-group"><label class="fr-label" for="flt_${d.key}" id="fltlbl_${d.key}"></label><select class="fr-select" id="flt_${d.key}" data-dim="${d.key}"></select></div>`).join("");
+  }
+  dims.forEach(d => {
+    const pool = ROWS.filter(r => dims.every(o => o.key === d.key || !filterState[o.key] || r[o.key] === filterState[o.key]));
+    const counts = {};
+    pool.forEach(r => { counts[r[d.key]] = (counts[r[d.key]] || 0) + 1; });
+    const keys = d.keys.filter(k => counts[k] || k === filterState[d.key]);
+    $("fltlbl_" + d.key).textContent = d.label;
+    const sel = $("flt_" + d.key);
+    sel.innerHTML = `<option value="">Toutes les valeurs (${fmtInt(pool.length)})</option>` +
+      keys.map(k => `<option value="${esc(k)}">${esc(d.labelFn(k))} (${fmtInt(counts[k] || 0)})</option>`).join("");
+    sel.value = filterState[d.key];
+    sel.classList.toggle("active", !!filterState[d.key]);
+  });
+  $("filters").hidden = !dims.length;
+  $("filterReset").hidden = !dims.some(d => filterState[d.key]);
+}
+function applyFilters() {
+  return ROWS.filter(r => (!filterState.cat || r.cat === filterState.cat) && (!filterState.ser || r.ser === filterState.ser));
+}
+function announce(msg) {
+  const el = $("liveStatus");
+  el.textContent = "";
+  setTimeout(() => { el.textContent = msg; }, 60);
+}
+function announceResult() {
+  const n = applyFilters().length;
+  announce(`Résultat : ${fmtInt(n)} ${itemWord(n)} sur ${fmtInt(ROWS.length)}.`);
+}
+$("filterFields").addEventListener("change", e => {
+  const dim = e.target.dataset.dim;
+  if (!dim) return;
+  filterState[dim] = e.target.value;
+  renderAll();
+  announceResult();
+});
+$("filterReset").addEventListener("click", () => {
+  filterState = { cat: "", ser: "" };
+  renderAll();
+  announceResult();
+  const first = $("filterFields").querySelector("select");
+  if (first) first.focus();   // le bouton disparaît : on replace le focus
+});
+
+// ==== Rendu général ====
+function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } delete EXPORTS[id]; }
+function clearCharts() { Object.keys(charts).forEach(destroyChart); }
+
+function showMessage(msg, keepFilters) {
+  $("pageSub").textContent = msg;
+  $("content").hidden = true;
+  if (!keepFilters) $("filters").hidden = true;
+  clearCharts();
+  MODEL = null;
+}
+function mappingNeeded() {
+  ROWS = null;
+  showMessage("Associez des colonnes dans le panneau de droite. Par exemple « Lignes du tableau » et « Valeurs à additionner », ou « Découper par (ex. statut) » pour compter des dossiers par statut.");
+}
+
+function renderAll() {
+  $("pageTitle").textContent = OPT.widgetTitle || DEFAULTS.widgetTitle;
+  if (!ROWS || !F) return;
+  computeDomains();
+  updateFilters();
+  const rows = applyFilters();
+  if (!rows.length) { showMessage("Aucune ligne ne correspond aux filtres sélectionnés.", true); return; }
+  MODEL = aggregate(rows);
+  MODEL.filtered = rows.length !== ROWS.length;
+  renderSub();
+  renderTable();
+  renderBar();
+  renderDist();
+  renderRatio();
+  $("content").hidden = false;
+}
+
+function renderSub() {
+  if (OPT.subtitle) { $("pageSub").textContent = OPT.subtitle; return; }
+  const n = MODEL.grand[0];
+  const parts = [`${fmtInt(n)} ${itemWord(n)}` + (MODEL.filtered ? ` sur ${fmtInt(ROWS.length)}` : "")];
+  F.valueCols.forEach((id, i) => parts.push(`${colTitle(id)} : ${fmtVal(MODEL.grand[i + 1])}`));
+  $("pageSub").textContent = parts.join(" — ");
+}
+
+// ==== Tableau (sert aussi d'alternative textuelle aux graphiques) ====
+function renderTable() {
+  const box = $("tableBox");
+  const ms = measures();
+  if (!ms.length) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  const visible = OPT.showTable !== false;
+  box.classList.toggle("fr-sr-only", !visible);   // masqué à l'écran mais lu par les lecteurs d'écran
+  box.classList.toggle("table-scroll", visible);
+  if (visible) box.setAttribute("tabindex", "0"); else box.removeAttribute("tabindex");
+
+  const { cats, sers, cell, byCat, bySer, grand } = MODEL;
+  const single = !F.hasCat;
+  const unit = OPT.unitTitle ? ` (${OPT.unitTitle})` : "";
+  const head = m => esc(m.count ? m.label : m.label + unit);
+  const sub = m => esc(m.count ? m.short : m.short + unit);
+  const tds = (arr) => ms.map(m => {
+    const v = arr ? arr[m.slot] : 0;
+    return `<td${v ? "" : ' class="zero"'}>${fmtM(m, v)}</td>`;
+  }).join("");
+  const firstHead = single ? '<th scope="col"><span class="fr-sr-only">Ligne</span></th>' : `<th scope="col"${F.hasSer && ms.length > 1 ? ' rowspan="2"' : ""}>${esc(catHeader())}</th>`;
+  const caption = `<caption class="fr-sr-only">${esc(OPT.widgetTitle)}${filterDesc() ? " — " + esc(filterDesc()) : ""}</caption>`;
+  let h = `<table class="pivot">${caption}<thead>`;
+
+  if (!F.hasSer) {
+    h += `<tr>${firstHead}${ms.map(m => `<th scope="col">${head(m)}</th>`).join("")}</tr></thead><tbody>`;
+    if (!single) cats.forEach(c => { h += `<tr><th scope="row">${esc(catLabel(c))}</th>${tds(byCat[c])}</tr>`; });
+    h += `<tr class="tot"><th scope="row">${esc(OPT.totauxTitle)}</th>${tds(grand)}</tr>`;
+  } else {
+    const multi = ms.length > 1, showTot = sers.length > 1;
+    const grp = label => multi ? `<th scope="colgroup" colspan="${ms.length}">${esc(label)}</th>` : `<th scope="col">${esc(label)}</th>`;
+    h += `<tr>${single && multi ? firstHead.replace("<th", '<th rowspan="2"') : firstHead}${showTot ? grp(OPT.totauxTitle) : ""}${sers.map(s => grp(serLabel(s))).join("")}</tr>`;
+    if (multi) h += `<tr>${[...(showTot ? [0] : []), ...sers].map(() => ms.map(m => `<th scope="col">${sub(m)}</th>`).join("")).join("")}</tr>`;
+    h += "</thead><tbody>";
+    const rowCells = (c) => (showTot ? tds(byCat[c]) : "") + sers.map(s => tds(cell[c][s])).join("");
+    if (!single) cats.forEach(c => { h += `<tr><th scope="row">${esc(catLabel(c))}</th>${rowCells(c)}</tr>`; });
+    h += `<tr class="tot"><th scope="row">${esc(OPT.totauxTitle)}</th>${showTot ? tds(grand) : ""}${sers.map(s => tds(bySer[s])).join("")}</tr>`;
+  }
+  h += "</tbody></table>";
+  box.innerHTML = h;
+}
+
+// ==== Histogramme ====
+function joinLabels(a) { return a.length <= 3 ? a.join(" et ").replace(/ et (?=.* et )/g, ", ") : "Valeurs"; }
+function barOptions() {
+  const ms = measures();
+  if (F.hasSer) return ms.map(m => ({ key: m.key, label: m.label, measures: [m] }));
+  const opts = [];
+  const cnt = ms.find(m => m.count);
+  if (cnt) opts.push({ key: "n", label: cnt.label, measures: [cnt] });
+  const vals = ms.filter(m => !m.count && !(OPT.barHidden || []).includes(m.id));
+  if (vals.length) opts.push({ key: "values", label: joinLabels(vals.map(m => m.label)), measures: vals });
+  return opts;
+}
+function autoBarTitle(opt) {
+  const by = [F.hasCat ? catHeader() : null, F.hasSer ? serHeader() : null].filter(Boolean);
+  return by.length ? `${opt.label} par ${by.join(" et ")}` : opt.label;
+}
+let switchSig = null;
+function renderSwitch(opts) {
+  const box = $("measureSwitch");
+  if (opts.length < 2) { box.hidden = true; box.innerHTML = ""; switchSig = null; return; }
+  const sig = opts.map(o => o.key + ":" + o.label).join("|");
+  if (sig !== switchSig) {
+    switchSig = sig;
+    box.innerHTML = `<fieldset class="fr-segmented fr-segmented--sm"><legend class="fr-segmented__legend fr-segmented__legend--inline">Afficher</legend><div class="fr-segmented__elements">` +
+      opts.map((o, i) => `<div class="fr-segmented__element"><input type="radio" name="measure" id="ms_${i}" value="${esc(o.key)}"><label class="fr-label" for="ms_${i}">${esc(o.label)}</label></div>`).join("") +
+      "</div></fieldset>";
+  }
+  box.hidden = false;
+  box.querySelectorAll("input").forEach(i => { i.checked = i.value === measureSel; });
+}
+$("measureSwitch").addEventListener("change", e => { measureSel = e.target.value; renderBar(); });
+
+function renderBar() {
+  const opts = barOptions();
+  if (!opts.length || OPT.showBar === false) { $("barBox").hidden = true; destroyChart("barChart"); return; }
+  $("barBox").hidden = false;
+  if (!opts.some(o => o.key === measureSel)) measureSel = opts[0].key;
+  const opt = opts.find(o => o.key === measureSel);
+  renderSwitch(opts);
+  const title = OPT.barChartTitle || autoBarTitle(opt);
+  $("barTitle").textContent = title;
+  drawChart("barChart", "histogramme", k => barConfig(opt, k),
+    `${title}. Histogramme : les valeurs détaillées figurent dans le tableau de données.`,
+    OPT.barChartTitle && opts.length > 1 ? opt.label : "");
+}
+
+function barConfig(opt, k = 1) {
+  const z = v => Math.round(v * k);
+  const { cats } = MODEL;
+  const single = !F.hasCat;
+  const m0 = opt.measures[0];
+  const labels = single ? [OPT.totauxTitle] : cats.map(catLabel);
+  let datasets;
+  if (F.hasSer) {
+    datasets = MODEL.sers.map(s => ({
+      label: serLabel(s), backgroundColor: serColor(s),
+      data: cats.map(c => (MODEL.cell[c][s] && MODEL.cell[c][s][m0.slot]) || null)
+    }));
+  } else {
+    datasets = opt.measures.map(m => ({
+      label: m.label, backgroundColor: m.count ? PALETTE[0] : colColor(m.id, m.idx),
+      data: cats.map(c => MODEL.byCat[c][m.slot] || null)
+    }));
+  }
+  datasets = datasets.filter(d => d.data.some(v => v));
+  const fmtL = v => fmtMC(m0, v);
+  const maxVal = Math.max(1, ...datasets.flatMap(d => d.data.map(v => v || 0)));
+  // étiquette verticale quand elle est plus large que sa barre
+  const fontSize = z(9), LABEL_FONT = `${fontSize}px Marianne, arial, sans-serif`;
+  const textW = (chart, txt) => { const c = chart.ctx; c.save(); c.font = LABEL_FONT; const w = c.measureText(txt).width; c.restore(); return w; };
+  const vertical = c => {
+    const v = c.dataset.data[c.dataIndex], el = c.chart.getDatasetMeta(c.datasetIndex).data[c.dataIndex];
+    if (!v || !el) return false;
+    const w = el.getProps(["width"], true).width;   // largeur finale (pas celle en cours d'animation)
+    return w < textW(c.chart, fmtL(v)) + 2;
+  };
+  const longest = Math.max(0, ...datasets.flatMap(d => d.data.filter(v => v).map(v => String(fmtL(v)).length)));
+  const narrow = labels.length === 1;
+  return {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, skipNull: true,
+      barPercentage: narrow ? 0.6 : 0.9, categoryPercentage: narrow ? 0.5 : 0.8,
+      layout: { padding: { top: z(12) + longest * z(5), left: z(8), right: z(8) } },
+      plugins: {
+        legend: { display: datasets.length > 1 || F.hasSer, position: "bottom", labels: { boxWidth: z(12), font: { size: z(11) } } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label} : ${fmtM(m0, c.parsed.y)}` } },
+        datalabels: {
+          anchor: "end", align: "end", clip: false, color: "#161616",
+          font: { size: fontSize, family: "Marianne, arial, sans-serif" },
+          rotation: c => vertical(c) ? -90 : 0,
+          offset: c => vertical(c) ? textW(c.chart, fmtL(c.dataset.data[c.dataIndex])) / 2 - 2 : 2,
+          formatter: v => v ? fmtL(v) : ""
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, border: { display: true }, ticks: { autoSkip: false, maxRotation: 45, font: { size: z(12) } } },
+        y: { display: false, beginAtZero: true, suggestedMax: maxVal * 1.08 }
+      }
+    },
+    plugins: [ChartDataLabels]
+  };
+}
+
+// ==== Donut « répartition » ====
+function renderDist() {
+  const keys = MODEL.avisKeys;
+  if (!F.hasAvis || OPT.showDonutDist === false || !keys.length) { $("distBox").hidden = true; destroyChart("distChart"); return; }
+  $("distBox").hidden = false;
+  const total = sum(keys.map(a => MODEL.avis[a]));
+  const title = OPT.avisTitle || `Répartition par ${pretty(F.avisId)}`;
+  $("distTitle").textContent = title;
+  const aria = `${title}. Graphique en anneau : ` +
+    keys.map(a => `${avisLabel(a)} ${fmtInt(MODEL.avis[a])} (${fmtPct(MODEL.avis[a] / total * 100)})`).join(", ") + ".";
+  drawChart("distChart", "repartition", k => distConfig(keys, k), aria);
+}
+function distConfig(keys, k = 1) {
+  const z = v => Math.round(v * k);
+  const values = keys.map(a => MODEL.avis[a]), colors = keys.map(avisColor), total = sum(values);
+  return {
+    type: "doughnut",
+    data: { labels: keys.map(avisLabel), datasets: [{ data: values, backgroundColor: colors, borderColor: "#fff", borderWidth: z(2) }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: z(12), font: { size: z(11) } } },
+        tooltip: { callbacks: { label: c => `${c.label} : ${fmtInt(c.parsed)} (${fmtPct(c.parsed / total * 100)})` } },
+        datalabels: {
+          color: c => textOn(colors[c.dataIndex]),
+          font: { size: z(11), weight: "bold" },
+          formatter: v => v / total >= 0.04 ? fmtInt(v) : ""
+        }
+      }
+    },
+    plugins: [ChartDataLabels]
+  };
+}
+
+// ==== Donut « part / total » ====
+function renderRatio() {
+  if (!F.hasRatio || OPT.showDonutRatio === false) { $("ratioBox").hidden = true; destroyChart("ratioChart"); return; }
+  $("ratioBox").hidden = false;
+  const part = MODEL.part;
+  const total = F.ratioCount ? MODEL.grand[0] : MODEL.total;   // sans colonne « total » : nombre de lignes
+  const fmtR = ratioFmt();
+  const partLabel = colTitle(F.partId);
+  const base = OPT.donutTitle || `${partLabel} / ${F.ratioCount ? countLabel() : colTitle(F.totalId)}`;
+  const title = `${base} (${total > 0 ? fmtPct(part / total * 100) : "—"})`;
+  $("ratioTitle").textContent = title;
+  drawChart("ratioChart", "ratio", k => ratioConfig(part, total, partLabel, k),
+    `${title}. Graphique en anneau : ${partLabel} ${fmtR(part)} sur un total de ${F.ratioCount ? `${fmtInt(total)} ${itemWord(total)}` : fmtR(total)}.`);
+}
+// Comparé à un nombre de lignes, le « nombre » n'a pas d'unité
+const ratioFmt = () => F.ratioCount ? (n => n.toLocaleString("fr-FR", { maximumFractionDigits: 2 })) : fmtVal;
+function ratioConfig(part, total, partLabel, k = 1) {
+  const fmtR = ratioFmt();
+  const z = v => Math.round(v * k);
+  const rest = Math.max(total - part, 0);
+  const colors = [donutColor("part"), donutColor("rest")];
+  const pctOf = (v, ds) => { const s = sum(ds); return s ? fmtPct(v / s * 100) : ""; };
+  return {
+    type: "doughnut",
+    data: { labels: [partLabel, OPT.restTitle], datasets: [{ data: [part, rest], backgroundColor: colors, borderColor: "#fff", borderWidth: z(2) }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: z(12), font: { size: z(11) } } },
+        tooltip: { callbacks: { label: c => `${c.label} : ${fmtR(c.parsed)} (${pctOf(c.parsed, c.dataset.data)})` } },
+        datalabels: {
+          color: c => textOn(colors[c.dataIndex]),
+          font: { size: z(12), weight: "bold" },
+          formatter: (v, c) => v ? pctOf(v, c.dataset.data) : ""
+        }
+      }
+    },
+    plugins: [ChartDataLabels]
+  };
+}
+
+function drawChart(id, kind, cfgFn, aria, exportSub) {
+  destroyChart(id);
+  const canvas = $(id);
+  canvas.setAttribute("aria-label", aria);
+  EXPORTS[id] = { kind, cfg: cfgFn, sub: exportSub || "" };
+  charts[id] = new Chart(canvas, cfgFn(1));
+}
+
+// ==== Export PNG haute définition (copie / téléchargement) ====
+const EXPORT_SCALE = 4, EXPORT_W = 900, EXPORT_K = 1.6;
+const slug = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+
+function buildExportCanvas(id) {
+  const S = EXPORT_SCALE, W = EXPORT_W, H = id === "barChart" ? 600 : 560;
+  const title = $(document.querySelector(`.chart-tools[data-chart="${id}"]`).dataset.title).textContent;
+  const sub = [EXPORTS[id].sub, filterDesc()].filter(Boolean).join(" · ");
+  const headH = sub ? 92 : 64;
+
+  const chartCanvas = document.createElement("canvas");
+  chartCanvas.width = W; chartCanvas.height = H;
+  const cfg = EXPORTS[id].cfg(EXPORT_K);
+  cfg.options = { ...cfg.options, responsive: false, animation: false, devicePixelRatio: S };
+  const ch = new Chart(chartCanvas, cfg);
+  ch.draw();
+
+  const out = document.createElement("canvas");
+  out.width = W * S; out.height = (H + headH) * S;
+  const ctx = out.getContext("2d");
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, out.width, out.height);
+  ctx.textAlign = "center";
+  const family = '"Marianne", Arial, sans-serif';
+  let size = 24;
+  do { ctx.font = `bold ${size * S}px ${family}`; size--; } while (ctx.measureText(title).width > (W - 48) * S && size > 12);
+  ctx.fillStyle = "#161616";
+  ctx.fillText(title, out.width / 2, 40 * S);
+  if (sub) { ctx.fillStyle = "#3A3A3A"; ctx.font = `${16 * S}px ${family}`; ctx.fillText(sub, out.width / 2, 68 * S); }
+  ctx.drawImage(chartCanvas, 0, headH * S);
+  ch.destroy();
+  return out;
+}
+const canvasBlob = c => new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error("génération de l'image impossible")), "image/png"));
+function exportFileName(id) {
+  return [slug(OPT.widgetTitle) || "graphique", EXPORTS[id].kind, slug(filterDesc())].filter(Boolean).join("-") + ".png";
+}
+
+let toastTimer;
+function showToast(msg, action) {
+  const t = $("toast");
+  t.textContent = msg + " ";
+  if (action) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "toast-link"; b.textContent = action.label;
+    b.addEventListener("click", action.onClick);
+    t.appendChild(b);
+  }
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.textContent = ""; }, 8000);
+}
+function openPreview(url, msg) {
+  $("previewMsg").textContent = msg || "Clic droit sur l'image, puis « Copier l'image » ou « Enregistrer l'image sous… ».";
+  $("previewImg").src = url;
+  $("previewImg").alt = "Aperçu du graphique exporté";
+  Dialog.open($("previewOverlay"));
+}
+async function downloadPng(id) {
+  try {
+    const url = URL.createObjectURL(await canvasBlob(buildExportCanvas(id)));
+    const a = document.createElement("a");
+    a.href = url; a.download = exportFileName(id);
+    document.body.appendChild(a); a.click(); a.remove();
+    showToast("Téléchargement lancé.", { label: "Rien ne se passe ? Ouvrir l'aperçu", onClick: () => openPreview(url) });
+  } catch (e) { showToast("Export impossible : " + e.message); }
+}
+async function copyPng(id) {
+  let canvas;
+  try { canvas = buildExportCanvas(id); } catch (e) { showToast("Export impossible : " + e.message); return; }
+  try {
+    if (!navigator.clipboard || typeof ClipboardItem === "undefined") throw new Error("presse-papiers indisponible");
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": canvasBlob(canvas) })]);
+    showToast("Image copiée : collez-la avec Ctrl+V.");
+  } catch (e) {
+    try { openPreview(URL.createObjectURL(await canvasBlob(canvas)), "La copie automatique est bloquée ici. Clic droit sur l'image, puis « Copier l'image » ou « Enregistrer l'image sous… »."); }
+    catch (e2) { showToast("Export impossible : " + e2.message); }
+  }
+}
+const ICON_COPY = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="M7 6V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3v3c0 .552-.45 1-1.007 1H4.007A1.001 1.001 0 0 1 3 21l.003-14c0-.552.45-1 1.006-1H7zM5.002 8L5 20h10V8H5.002zM9 6h8v10h2V4H9v2z"/></svg>';
+const ICON_DL = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true" focusable="false"><path d="M3 19h18v2H3v-2zm10-5.828L19.071 7.1l1.414 1.414L12 17 3.515 8.515 4.929 7.1 11 13.173V2h2v11.172z"/></svg>';
+document.querySelectorAll(".chart-tools").forEach(t => {
+  const id = t.dataset.chart, d = t.dataset.title;
+  t.innerHTML =
+    `<button type="button" class="icon-btn" data-act="copy" data-chart="${id}" aria-label="Copier l'image du graphique" aria-describedby="${d}" title="Copier l'image (PNG)">${ICON_COPY}</button>` +
+    `<button type="button" class="icon-btn" data-act="download" data-chart="${id}" aria-label="Télécharger le graphique en PNG" aria-describedby="${d}" title="Télécharger en PNG haute définition">${ICON_DL}</button>`;
+  t.addEventListener("click", e => {
+    const b = e.target.closest("button[data-act]");
+    if (!b || !EXPORTS[id]) return;
+    (b.dataset.act === "copy" ? copyPng : downloadPng)(id);
+  });
+});
+
+// ==== Fenêtres modales accessibles (focus piégé, Échap, retour du focus) ====
+const Dialog = (() => {
+  let current = null, lastFocus = null;
+  const SEL = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])';
+  const focusables = el => [...el.querySelectorAll(SEL)].filter(x => x.getClientRects().length > 0);
+  function open(overlay) {
+    if (current) close();
+    lastFocus = document.activeElement;
+    current = overlay;
+    overlay.hidden = false;
+    document.body.classList.add("no-scroll");
+    overlay.querySelector('[role="dialog"]').focus();
+  }
+  function close() {
+    if (!current) return;
+    current.hidden = true;
+    current = null;
+    document.body.classList.remove("no-scroll");
+    if (lastFocus && document.body.contains(lastFocus)) lastFocus.focus();
+  }
+  document.addEventListener("keydown", e => {
+    if (!current) return;
+    if (e.key === "Escape") { e.preventDefault(); close(); return; }
+    if (e.key !== "Tab") return;
+    const f = focusables(current);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !current.contains(document.activeElement) || document.activeElement.getAttribute("role") === "dialog")) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  document.querySelectorAll(".overlay").forEach(o => o.addEventListener("mousedown", e => { if (e.target === o) close(); }));
+  return { open, close };
+})();
+$("previewClose").addEventListener("click", () => Dialog.close());
+
+// ==== Panneau de configuration ====
+let pending = {};   // couleurs en cours d'édition : "groupe|clé" → couleur
+
+const fText = (key, label, hint) =>
+  `<div class="fr-input-group"><label class="fr-label" for="cfg_${key}">${esc(label)}${hint ? `<span class="fr-hint-text">${esc(hint)}</span>` : ""}</label>` +
+  `<input class="fr-input" type="text" id="cfg_${key}" data-opt="${key}" value="${esc(OPT[key] == null ? "" : OPT[key])}"></div>`;
+const fCheck = (key, label, checked, attr) =>
+  `<div class="fr-checkbox-group fr-checkbox-group--sm"><input type="checkbox" id="cfg_${key}" ${attr || `data-opt="${key}"`}${checked ? " checked" : ""}><label class="fr-label" for="cfg_${key}">${esc(label)}</label></div>`;
+const fSelect = (key, label, options) =>
+  `<div class="fr-select-group"><label class="fr-label" for="cfg_${key}">${esc(label)}</label><select class="fr-select" id="cfg_${key}" data-opt="${key}">` +
+  options.map(([v, l]) => `<option value="${esc(v)}"${OPT[key] === v ? " selected" : ""}>${esc(l)}</option>`).join("") + "</select></div>";
+const section = (title, body, open) => body
+  ? `<details class="cfg-section"${open ? " open" : ""}><summary>${esc(title)}</summary><div class="cfg-section-body">${body}</div></details>` : "";
+
+let itemSeq = 0;
+function itemHtml({ group, key, raw, labelMap, color, def, placeholder }) {
+  const id = `it_${itemSeq++}`;
+  const cur = color ? '<span class="cfg-cur" aria-hidden="true"></span>' : "";
+  let h = `<div class="cfg-item" data-group="${group}" data-key="${esc(key)}"${color ? ` data-default="${def.toLowerCase()}"` : ""}>`;
+  if (labelMap) {
+    h += `<label class="fr-label cfg-item-label" for="${id}">${cur}<span>${esc(raw)}<span class="fr-sr-only"> : libellé affiché</span></span></label>` +
+         `<input class="fr-input cfg-name" type="text" id="${id}" placeholder="${esc(placeholder || raw)}" value="${esc((labelMap || {})[key] || "")}">`;
+  } else {
+    h += `<p class="cfg-item-label">${cur}<span>${esc(raw)}</span></p>`;
+  }
+  if (color) {
+    pending[group + "|" + key] = color.toLowerCase();
+    h += `<div class="cfg-swatches" role="radiogroup" aria-label="Couleur : ${esc(raw)}">` +
+      SWATCHES.map(c => `<button type="button" class="cfg-swatch" role="radio" aria-checked="false" tabindex="-1" data-color="${c}" style="background-color:${c} !important" aria-label="${esc(COLOR_NAMES[c] || c)}" title="${esc(COLOR_NAMES[c] || c)}"></button>`).join("") +
+      `</div><button type="button" class="cfg-link cfg-more" aria-expanded="false">Autre couleur…</button>` +
+      `<input type="color" class="cfg-custom" hidden aria-label="Couleur personnalisée : ${esc(raw)}">`;
+  }
+  return h + "</div>";
+}
+
+function buildConfig() {
+  pending = {}; itemSeq = 0;
+  const has = !!F;
+  const f = F || { valueCols: [] };
+  let h = "";
+
+  // Textes
+  let t = fText("widgetTitle", "Titre du widget") +
+    fText("subtitle", "Sous-titre", "Vide = résumé automatique (nombre de lignes et totaux)") +
+    fText("itemLabel", "Nom des éléments comptés, au pluriel", "Ex. « dossiers ». Sert pour « Nombre de … »") +
+    fText("unitTitle", "Unité des valeurs additionnées", "Ex. « € ». Vide = aucune") +
+    fText("totauxTitle", "Libellé de la ligne de total");
+  if (f.hasCat) t += fText("categorieTitle", "Titre de la colonne « Lignes »", `Vide = « ${pretty(f.catId)} »`);
+  if (f.hasSer) t += fText("statutTitle", "Titre de la colonne « Découper par »", `Vide = « ${pretty(f.serId)} »`);
+  t += fText("barChartTitle", "Titre de l'histogramme", "Vide = automatique");
+  if (f.hasAvis) t += fText("avisTitle", "Titre du donut « répartition »", "Vide = automatique");
+  if (f.hasRatio) t += fText("donutTitle", "Titre du donut « part / total »", "Vide = automatique") + fText("restTitle", "Libellé de la part restante");
+  h += section("Textes", t, true);
+
+  // Affichage
+  let a = '<fieldset><legend>Éléments affichés</legend>' +
+    fCheck("showTable", "Tableau", OPT.showTable !== false) +
+    fCheck("showBar", "Histogramme", OPT.showBar !== false) +
+    (f.hasAvis ? fCheck("showDonutDist", "Donut « répartition »", OPT.showDonutDist !== false) : "") +
+    (f.hasRatio ? fCheck("showDonutRatio", "Donut « part / total »", OPT.showDonutRatio !== false) : "") +
+    "</fieldset>";
+  a += '<p class="cfg-hint">Le tableau masqué reste lisible par les lecteurs d\'écran.</p>';
+  if (has) a += fCheck("showCount", `Compter les éléments (« ${countLabel()} »)`, showCount());
+  if (has && !f.hasSer && f.valueCols.length > 1) {
+    a += "<fieldset><legend>Colonnes tracées dans l'histogramme</legend>" +
+      f.valueCols.map((id, i) => fCheck("bar_" + i, colTitle(id), !(OPT.barHidden || []).includes(id), `data-barcol="${esc(id)}"`)).join("") + "</fieldset>";
+  }
+  if (f.hasSer) a += fCheck("dsPreset", "Couleurs et ordre Démarches Simplifiées pour les statuts reconnus", OPT.dsPreset !== false);
+  h += section("Affichage", a);
+
+  // Ordre
+  if (f.hasCat || f.hasSer || f.hasAvis) {
+    let o = fSelect("sortMode", "Ordre des valeurs", [["source", "Ordre d'apparition dans la table"], ["alpha", "Ordre alphabétique"]]);
+    if (f.hasCat) o += fText("catOrder", "Lignes à placer en premier", "Valeurs séparées par des virgules, ex. « SP, EA, PP »");
+    if (f.hasSer) o += fText("serOrder", "Valeurs « Découper par » à placer en premier", "Valeurs séparées par des virgules");
+    h += section("Ordre", o);
+  }
+
+  // Colonnes de valeurs (titre, et couleur quand « Découper par » n'est pas associé)
+  const titled = [...new Set([...f.valueCols, f.partId, f.totalId].filter(Boolean))];
+  if (titled.length) {
+    h += section("Colonnes de valeurs",
+      '<p class="cfg-hint">Libellé affiché (vide = nom de la colonne Grist).</p>' +
+      titled.map(id => {
+        const i = f.valueCols.indexOf(id), withColor = i >= 0 && !f.hasSer;
+        return itemHtml({ group: "col", key: id, raw: pretty(id), labelMap: OPT.colTitles,
+          color: withColor ? colColor(id, i) : null, def: withColor ? defColColor(i) : null });
+      }).join(""));
+  }
+  if (f.hasCat && DOM) {
+    h += section(`Valeurs « ${catHeader()} »`,
+      '<p class="cfg-hint">Libellé affiché (vide = valeur d\'origine).</p>' +
+      DOM.cats.map(k => itemHtml({ group: "cat", key: k, raw: rawLabel(k), labelMap: OPT.catLabels })).join(""));
+  }
+  if (f.hasSer && DOM) {
+    h += section(`Valeurs « ${serHeader()} »`,
+      '<p class="cfg-hint">Libellé et couleur de chaque valeur.</p>' +
+      DOM.sers.map(k => itemHtml({ group: "ser", key: k, raw: rawLabel(k), labelMap: OPT.serLabels, placeholder: (presetFor(k) || {}).label, color: serColor(k), def: DEF_COLORS.ser[k] || EMPTY_COLOR })).join(""));
+  }
+  if (f.hasAvis && DOM && DOM.avis.length) {
+    h += section(`Valeurs du donut « ${pretty(f.avisId)} »`,
+      DOM.avis.map(k => itemHtml({ group: "avis", key: k, raw: rawLabel(k), labelMap: OPT.avisLabels, color: avisColor(k), def: DEF_COLORS.avis[k] || EMPTY_COLOR })).join(""));
+  }
+  if (f.hasRatio) {
+    h += section("Couleurs du donut « part / total »",
+      itemHtml({ group: "donut", key: "part", raw: colTitle(f.partId), color: donutColor("part"), def: DONUT_DEFAULT.part }) +
+      itemHtml({ group: "donut", key: "rest", raw: OPT.restTitle, color: donutColor("rest"), def: DONUT_DEFAULT.rest }));
+  }
+  if (Object.keys(pending).length) h += '<button type="button" id="cfgColorReset" class="cfg-link">Rétablir les couleurs par défaut</button>';
+  if (!has) h += '<p class="cfg-hint" style="margin-top:12px">Associez des colonnes pour accéder aux autres réglages.</p>';
+  $("cfgFields").innerHTML = h;
+  refreshColorUI();
+}
+
+function refreshColorUI() {
+  document.querySelectorAll("#cfgFields .cfg-item[data-default]").forEach(item => {
+    const color = pending[item.dataset.group + "|" + item.dataset.key];
+    item.querySelector(".cfg-cur").style.backgroundColor = color;
+    const sw = [...item.querySelectorAll(".cfg-swatch")];
+    let any = false;
+    sw.forEach(s => { const on = s.dataset.color === color; any = any || on; s.setAttribute("aria-checked", on); s.tabIndex = on ? 0 : -1; });
+    if (!any) sw[0].tabIndex = 0;
+    const custom = item.querySelector(".cfg-custom");
+    custom.value = color;
+    if (!any) { custom.hidden = false; item.querySelector(".cfg-more").setAttribute("aria-expanded", "true"); }
+  });
+}
+// Choisit une couleur ; si une autre valeur du même groupe l'utilise déjà, elles sont interverties
+function setPending(item, color) {
+  const g = item.dataset.group, key = item.dataset.key, old = pending[g + "|" + key];
+  color = color.toLowerCase();
+  document.querySelectorAll(`#cfgFields .cfg-item[data-group="${g}"][data-default]`).forEach(o => {
+    const k = g + "|" + o.dataset.key;
+    if (o !== item && pending[k] === color) pending[k] = old;
+  });
+  pending[g + "|" + key] = color;
+  refreshColorUI();
+}
+$("cfgFields").addEventListener("click", e => {
+  const item = e.target.closest(".cfg-item");
+  const sw = e.target.closest(".cfg-swatch");
+  if (sw) { setPending(item, sw.dataset.color); sw.focus(); return; }
+  const more = e.target.closest(".cfg-more");
+  if (more) {
+    const c = item.querySelector(".cfg-custom");
+    c.hidden = !c.hidden;
+    more.setAttribute("aria-expanded", String(!c.hidden));
+    if (!c.hidden) c.focus();
+    return;
+  }
+  if (e.target.id === "cfgColorReset") {
+    document.querySelectorAll("#cfgFields .cfg-item[data-default]").forEach(it => { pending[it.dataset.group + "|" + it.dataset.key] = it.dataset.default; });
+    refreshColorUI();
+    announce("Couleurs par défaut rétablies (à enregistrer).");
+  }
+});
+$("cfgFields").addEventListener("input", e => {
+  if (e.target.classList.contains("cfg-custom")) setPending(e.target.closest(".cfg-item"), e.target.value);
+});
+// Flèches dans un groupe de pastilles (comportement standard d'un groupe de boutons radio)
+$("cfgFields").addEventListener("keydown", e => {
+  const sw = e.target.closest(".cfg-swatch");
+  if (!sw) return;
+  const all = [...sw.parentElement.querySelectorAll(".cfg-swatch")];
+  let i = all.indexOf(sw);
+  if (e.key === "ArrowRight" || e.key === "ArrowDown") i = (i + 1) % all.length;
+  else if (e.key === "ArrowLeft" || e.key === "ArrowUp") i = (i - 1 + all.length) % all.length;
+  else if (e.key === "Home") i = 0;
+  else if (e.key === "End") i = all.length - 1;
+  else if (e.key === " " || e.key === "Enter") { e.preventDefault(); setPending(sw.closest(".cfg-item"), sw.dataset.color); return; }
+  else return;
+  e.preventDefault();
+  setPending(sw.closest(".cfg-item"), all[i].dataset.color);
+  all[i].focus();
+});
+
+function readConfig() {
+  const o = { ...OPT };
+  document.querySelectorAll("#cfgFields [data-opt]").forEach(el => {
+    const k = el.dataset.opt;
+    if (el.type === "checkbox") o[k] = el.checked;
+    else { const v = el.value.trim(); o[k] = (!v && NON_EMPTY_TEXTS.includes(k)) ? DEFAULTS[k] : v; }
+  });
+  if (F && "showCount" in o && $("cfg_showCount")) o.showCount = o.showCount === autoShowCount() ? null : o.showCount;
+  const bar = [...document.querySelectorAll("#cfgFields [data-barcol]")];
+  if (bar.length) {
+    const hidden = bar.filter(b => !b.checked).map(b => b.dataset.barcol);
+    o.barHidden = hidden.length < bar.length ? hidden : [];   // au moins une colonne tracée
+  }
+  const LABELS = { col: "colTitles", cat: "catLabels", ser: "serLabels", avis: "avisLabels" };
+  const COLORS = { col: "colColors", ser: "serColors", avis: "avisColors", donut: "donutColors" };
+  [...Object.values(LABELS), ...Object.values(COLORS)].forEach(m => { o[m] = { ...(OPT[m] || {}) }; });
+  document.querySelectorAll("#cfgFields .cfg-item").forEach(item => {
+    const g = item.dataset.group, key = item.dataset.key;
+    const name = item.querySelector(".cfg-name");
+    if (name && LABELS[g]) {
+      const map = o[LABELS[g]], v = name.value.trim();
+      delete map[normCmp(key)];
+      if (v && v !== name.placeholder) map[key] = v; else delete map[key];
+    }
+    if (item.dataset.default && COLORS[g]) {
+      const map = o[COLORS[g]], c = pending[g + "|" + key];
+      delete map[normCmp(key)];
+      if (c && c !== item.dataset.default) map[key] = c; else delete map[key];
+    }
+  });
+  return o;
+}
+
+function openConfig() { buildConfig(); Dialog.open($("configOverlay")); }
+$("cfgOpenBtn").addEventListener("click", openConfig);
+$("cfgClose").addEventListener("click", () => Dialog.close());
+$("cfgCancel").addEventListener("click", () => Dialog.close());
+$("cfgForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const o = readConfig();
+  OPT = o;
+  renderAll();
+  Dialog.close();
+  try { await grist.setOptions(o); showToast("Réglages enregistrés."); }
+  catch (err) { showToast("Réglages appliqués, mais non enregistrés dans le document (droits d'édition nécessaires)."); }
+});
+
+// ==== Reprise des réglages des anciens widgets ====
+function migrate(o) {
+  o = { ...(o || {}) };
+  if (o.subtitle === undefined && o.tableIntro) o.subtitle = o.tableIntro;
+  if (!o.catLabels && o.categorieLabels) o.catLabels = o.categorieLabels;
+  if (!o.serLabels && o.statutLabels) o.serLabels = o.statutLabels;
+  if (!o.serColors && o.statutColors) o.serColors = o.statutColors;
+  if (!o.unitTitle && o.showCurrency) o.unitTitle = "€";
+  return { ...DEFAULTS, ...o };
+}
+
+// ==== Intégration Grist ====
+if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) Chart.defaults.animation = false;
+Chart.defaults.font.family = "Marianne, arial, sans-serif";
+Chart.defaults.color = "#3A3A3A";
+
+let recordsFired = false;
+try {
+  grist.ready({
+    columns: Object.values(COLS).map(c => ({ name: c.name, title: c.title, description: c.description, type: c.type, optional: true, allowMultiple: !!c.allowMultiple })),
+    requiredAccess: "read table",
+    hasCustomOptions: true,
+    onEditOptions: openConfig
+  });
+
+  grist.onOptions(options => {
+    OPT = migrate(options);
+    renderAll();
+  });
+
+  grist.onRecords((records, mappings) => {
+    recordsFired = true;
+    const m = mappings || {};
+    const has = v => Array.isArray(v) ? v.length > 0 : !!v;
+    if (!Object.values(m).some(has)) return mappingNeeded();
+    const mapped = grist.mapColumnNames(records, mappings);
+    if (!mapped) return mappingNeeded();
+    F = {
+      catId: m[COLS.lignes.name] || null,
+      serId: m[COLS.series.name] || null,
+      avisId: m[COLS.donutCat.name] || null,
+      valueCols: [].concat(m[COLS.valeurs.name] || []),
+      partId: m[COLS.donutPart.name] || null,
+      totalId: m[COLS.donutTotal.name] || null
+    };
+    F.hasCat = !!F.catId; F.hasSer = !!F.serId; F.hasAvis = !!F.avisId; F.hasRatio = !!F.partId; F.ratioCount = !F.totalId;
+    if (!F.hasCat && !F.hasSer && !F.valueCols.length && !F.hasAvis && !F.hasRatio) return mappingNeeded();
+    if (!mapped.length) { ROWS = null; return showMessage("Aucune donnée à afficher pour le moment."); }
+    ROWS = mapped.map(r => {
+      const vals = [].concat(r[COLS.valeurs.name] == null ? [] : r[COLS.valeurs.name]);
+      return {
+        cat: F.hasCat ? keyOf(r[COLS.lignes.name]) : ALL,
+        ser: F.hasSer ? keyOf(r[COLS.series.name]) : NOSER,
+        avis: F.hasAvis ? keyOf(r[COLS.donutCat.name]) : EMPTY,
+        vals: F.valueCols.map((_, i) => num(vals[i])),
+        part: num(r[COLS.donutPart.name]),
+        total: num(r[COLS.donutTotal.name])
+      };
+    });
+    renderAll();
+  });
+
+  setTimeout(() => {
+    if (!recordsFired) showMessage("Ce widget doit être ouvert depuis un document Grist, avec l'accès « Lire les données sources sélectionnées » accordé dans le panneau de droite.");
+  }, 1500);
+} catch (e) {
+  showMessage("Ce widget doit être ouvert depuis un document Grist, avec l'accès « Lire les données sources sélectionnées » accordé dans le panneau de droite.");
+}
+</script>
+</body>
+</html>
