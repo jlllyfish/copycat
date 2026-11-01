@@ -7,7 +7,7 @@ Il sait **additionner** des colonnes (budgets, effectifs…) et **compter** des 
 ## Installation dans Grist
 
 1. Ajouter un widget à la page : **Personnalisé**, puis **URL personnalisée**.
-2. Coller l'URL : `https://jlllyfish.github.io//copycat/`
+2. Coller l'URL : `https://jlllyfish.github.io/copycat/`
 3. Choisir la table source et accorder l'accès **« Lire les données sources sélectionnées »**.
 4. Associer les colonnes dans le panneau de droite (voir ci-dessous).
 
