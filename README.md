@@ -65,6 +65,11 @@ Une case à cocher, activée par défaut, reconnaît les statuts DS : `en_constr
   - deux palettes au choix dans ⚙ > Affichage : **Vive** (par défaut, inspirée d'Asana) ou **Sobre (DSFR)** ;
   - chaque barre et chaque part de donut a un contour de la même teinte, assombri jusqu'à un contraste de 3:1 sur fond blanc, ce qui garde les couleurs vives lisibles ;
   - le texte posé sur les donuts passe en noir ou en blanc selon le fond.
+- Mode sombre :
+  - par défaut, le widget suit le thème de Grist (sinon le réglage du système) ;
+  - on peut forcer le clair ou le sombre dans ⚙ > Affichage ;
+  - les contours des barres sont éclaircis sur fond sombre pour garder le contraste de 3:1 ;
+  - les exports PNG restent sur fond blanc.
 - Les animations sont désactivées quand l'utilisateur a choisi `prefers-reduced-motion`.
 
 ## Reprise des anciennes versions
