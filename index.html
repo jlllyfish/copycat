@@ -190,30 +190,69 @@ const COLS = {
                 description: "Facultatif. Si vide, le total de référence est le nombre de lignes." }
 };
 
-// ==== Couleurs (toutes au moins 3:1 sur fond blanc, sauf le bleu pâle réservé à la part restante) ====
-const PALETTE = ["#000091", "#18753C", "#B34000", "#6E445A", "#009099", "#A558A0", "#417DC4", "#CE614A", "#8D6E00", "#929292"];
+// ==== Couleurs ====
+// Deux palettes au choix (⚙ > Affichage). Les couleurs vives sont souvent sous 3:1 sur fond blanc :
+// chaque barre et chaque part de donut reçoit donc un contour de la même teinte, assombri jusqu'à 3:1 (voir outline()).
+const PALETTES = {
+  vive: {
+    colors: ["#6A67CE", "#1AAFD0", "#F95353", "#FD9A00", "#37C597", "#A177FF", "#FA5E95", "#4F4DA7", "#FFB900", "#7C7D8B"],
+    extra:  ["#E63B3B", "#1EC5EA", "#D0BBFF"],
+    donut:  { part: "#6A67CE", rest: "#D0BBFF" },
+    ds:     { "en construction": "#9FA0AA", "en instruction": "#1AAFD0", "accepte": "#37C597", "sans suite": "#FD9A00", "refuse": "#E63B3B" }
+  },
+  dsfr: {
+    colors: ["#000091", "#18753C", "#B34000", "#6E445A", "#009099", "#A558A0", "#417DC4", "#CE614A", "#8D6E00", "#929292"],
+    extra:  ["#CE0500", "#A55800", "#CACAFB"],
+    donut:  { part: "#000091", rest: "#CACAFB" },
+    ds:     { "en construction": "#929292", "en instruction": "#000091", "accepte": "#18753C", "sans suite": "#A55800", "refuse": "#CE0500" }
+  }
+};
 const COLOR_NAMES = {
-  "#000091": "Bleu France", "#18753c": "Vert", "#b34000": "Orange brûlé", "#6e445a": "Prune",
-  "#009099": "Turquoise", "#a558a0": "Violet", "#417dc4": "Bleu ciel", "#ce614a": "Brique",
+  // vive
+  "#6a67ce": "Violet", "#1aafd0": "Turquoise", "#f95353": "Corail", "#fd9a00": "Orange", "#37c597": "Vert",
+  "#a177ff": "Lilas", "#fa5e95": "Rose", "#4f4da7": "Indigo", "#ffb900": "Or", "#7c7d8b": "Gris",
+  "#e63b3b": "Rouge", "#1ec5ea": "Cyan", "#d0bbff": "Lilas pâle", "#9fa0aa": "Gris clair",
+  // sobre (DSFR)
+  "#000091": "Bleu France", "#18753c": "Vert foncé", "#b34000": "Orange brûlé", "#6e445a": "Prune",
+  "#009099": "Bleu canard", "#a558a0": "Violet", "#417dc4": "Bleu ciel", "#ce614a": "Brique",
   "#8d6e00": "Moutarde", "#929292": "Gris", "#ce0500": "Rouge", "#a55800": "Brun", "#cacafb": "Bleu pâle"
 };
-const SWATCHES = [...PALETTE, "#CE0500", "#A55800", "#CACAFB"].map(c => c.toLowerCase());
-const DONUT_DEFAULT = { part: "#000091", rest: "#CACAFB" };
+let PALETTE, SWATCHES, DONUT_DEFAULT, DS_COLORS;
+function applyPalette() {
+  const p = PALETTES[OPT.palette] || PALETTES.vive;
+  PALETTE = p.colors;
+  SWATCHES = [...p.colors, ...p.extra].map(c => c.toLowerCase());
+  DONUT_DEFAULT = p.donut;
+  DS_COLORS = p.ds;
+}
 const EMPTY_COLOR = "#666666";
 
-// Préréglage « Démarches Simplifiées » : couleur et ordre des statuts reconnus
+// Contour d'une forme : même teinte, assombrie jusqu'à un contraste de 3:1 sur fond blanc
+const outlineCache = {};
+function outline(hex) {
+  hex = String(hex).toLowerCase();
+  if (outlineCache[hex]) return outlineCache[hex];
+  const n = parseInt(hex.replace("#", ""), 16);
+  let r = n >> 16 & 255, g = n >> 8 & 255, b = n & 255, out = hex, i = 0;
+  const toHex = () => "#" + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+  while (1.05 / (luminance(out) + 0.05) < 3 && i++ < 60) { r *= 0.93; g *= 0.93; b *= 0.93; out = toHex(); }
+  return (outlineCache[hex] = out);
+}
+
+// Préréglage « Démarches Simplifiées » : ordre et libellé des statuts reconnus (couleur selon la palette)
 // (comparaison insensible à la casse, aux accents, et espace ≈ underscore)
 const DS_PRESET = {
-  "en construction": { color: "#929292", order: 1, label: "En construction" },
-  "en instruction":  { color: "#000091", order: 2, label: "En instruction" },
-  "accepte":         { color: "#18753C", order: 3, label: "Accepté" },
-  "sans suite":      { color: "#A55800", order: 4, label: "Sans suite" },
-  "refuse":          { color: "#CE0500", order: 5, label: "Refusé" }
+  "en construction": { order: 1, label: "En construction" },
+  "en instruction":  { order: 2, label: "En instruction" },
+  "accepte":         { order: 3, label: "Accepté" },
+  "sans suite":      { order: 4, label: "Sans suite" },
+  "refuse":          { order: 5, label: "Refusé" }
 };
 
 // ==== Options (bouton ⚙) ====
 const DEFAULTS = {
   widgetTitle: "Suivi des dossiers",
+  palette: "vive",      // "vive" | "dsfr"
   subtitle: "",          // vide = automatique
   itemLabel: "lignes",   // nom des éléments comptés, au pluriel (ex. « dossiers »)
   unitTitle: "",         // unité des valeurs additionnées (ex. « € »)
@@ -307,7 +346,11 @@ const serLabel = k => { const v = valueLabel(OPT.serLabels, k), p = presetFor(k)
 const avisLabel = k => valueLabel(OPT.avisLabels, k);
 
 // ==== Couleurs ====
-function presetFor(k) { return (OPT.dsPreset && k !== EMPTY) ? DS_PRESET[normCmp(k)] || null : null; }
+function presetFor(k) {
+  if (!OPT.dsPreset || k === EMPTY) return null;
+  const key = normCmp(k), p = DS_PRESET[key];
+  return p ? { ...p, color: DS_COLORS[key] } : null;
+}
 function assignColors(keys, presetColor) {
   const out = {}, used = new Set();
   keys.forEach(k => { const p = presetColor && presetColor(k); if (p) { out[k] = p; used.add(p.toLowerCase()); } });
@@ -593,12 +636,13 @@ function barConfig(opt, k = 1) {
   let datasets;
   if (F.hasSer) {
     datasets = MODEL.sers.map(s => ({
-      label: serLabel(s), backgroundColor: serColor(s),
+      label: serLabel(s), backgroundColor: serColor(s), borderColor: outline(serColor(s)), borderWidth: z(1),
       data: cats.map(c => (MODEL.cell[c][s] && MODEL.cell[c][s][m0.slot]) || null)
     }));
   } else {
     datasets = opt.measures.map(m => ({
       label: m.label, backgroundColor: m.count ? PALETTE[0] : colColor(m.id, m.idx),
+      borderColor: outline(m.count ? PALETTE[0] : colColor(m.id, m.idx)), borderWidth: z(1),
       data: cats.map(c => MODEL.byCat[c][m.slot] || null)
     }));
   }
@@ -660,7 +704,7 @@ function distConfig(keys, k = 1) {
   const values = keys.map(a => MODEL.avis[a]), colors = keys.map(avisColor), total = sum(values);
   return {
     type: "doughnut",
-    data: { labels: keys.map(avisLabel), datasets: [{ data: values, backgroundColor: colors, borderColor: "#fff", borderWidth: z(2) }] },
+    data: { labels: keys.map(avisLabel), datasets: [{ data: values, backgroundColor: colors, borderColor: colors.map(outline), borderWidth: z(1) }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
@@ -701,7 +745,7 @@ function ratioConfig(part, total, partLabel, k = 1) {
   const pctOf = (v, ds) => { const s = sum(ds); return s ? fmtPct(v / s * 100) : ""; };
   return {
     type: "doughnut",
-    data: { labels: [partLabel, OPT.restTitle], datasets: [{ data: [part, rest], backgroundColor: colors, borderColor: "#fff", borderWidth: z(2) }] },
+    data: { labels: [partLabel, OPT.restTitle], datasets: [{ data: [part, rest], backgroundColor: colors, borderColor: colors.map(outline), borderWidth: z(1) }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
@@ -907,7 +951,9 @@ function buildConfig() {
   h += section("Textes", t, true);
 
   // Affichage
-  let a = '<fieldset><legend>Éléments affichés</legend>' +
+  let a = fSelect("palette", "Palette de couleurs", [["vive", "Vive"], ["dsfr", "Sobre (DSFR)"]]) +
+    '<p class="cfg-hint">Les couleurs déjà personnalisées sont conservées. Enregistrez pour voir la nouvelle palette.</p>' +
+    '<fieldset><legend>Éléments affichés</legend>' +
     fCheck("showTable", "Tableau", OPT.showTable !== false) +
     fCheck("showBar", "Histogramme", OPT.showBar !== false) +
     (f.hasAvis ? fCheck("showDonutDist", "Donut « répartition »", OPT.showDonutDist !== false) : "") +
@@ -1069,6 +1115,7 @@ $("cfgForm").addEventListener("submit", async e => {
   e.preventDefault();
   const o = readConfig();
   OPT = o;
+  applyPalette();
   renderAll();
   Dialog.close();
   try { await grist.setOptions(o); showToast("Réglages enregistrés."); }
@@ -1091,6 +1138,7 @@ if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)
 Chart.defaults.font.family = "Marianne, arial, sans-serif";
 Chart.defaults.color = "#3A3A3A";
 
+applyPalette();
 let recordsFired = false;
 try {
   grist.ready({
@@ -1102,6 +1150,7 @@ try {
 
   grist.onOptions(options => {
     OPT = migrate(options);
+    applyPalette();
     renderAll();
   });
 

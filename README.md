@@ -62,7 +62,8 @@ Une case à cocher, activée par défaut, reconnaît les statuts DS : `en_constr
 - Les pastilles de couleur sont nommées (« Bleu France ») et se choisissent aux flèches du clavier.
 - Le résultat des filtres est annoncé (`aria-live`).
 - Couleurs :
-  - celles de la palette ont un contraste d'au moins 3:1 sur fond blanc ;
+  - deux palettes au choix dans ⚙ > Affichage : **Vive** (par défaut, inspirée d'Asana) ou **Sobre (DSFR)** ;
+  - chaque barre et chaque part de donut a un contour de la même teinte, assombri jusqu'à un contraste de 3:1 sur fond blanc, ce qui garde les couleurs vives lisibles ;
   - le texte posé sur les donuts passe en noir ou en blanc selon le fond.
 - Les animations sont désactivées quand l'utilisateur a choisi `prefers-reduced-motion`.
 
